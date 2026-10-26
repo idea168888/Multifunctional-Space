@@ -1,40 +1,753 @@
-'use strict';
-const $=s=>document.querySelector(s), key='multi-space-v1';
-let state={themes:[],works:[]};try{const s=JSON.parse(localStorage.getItem(key));if(s&&Array.isArray(s.themes)&&Array.isArray(s.works))state=s;}catch{}
-const themes=[['sticker','☺','LINE 貼圖工坊','讓你的角色，走進每一天的對話。','規格檢查 · 送審準備','#ecf0de'],['video','▷','影片創作室','把腦海裡的畫面，寫成動人的故事。','分鏡企劃 · 拍攝腳本','#f9e9de'],['art','▧','圖文靈感所','用文字與色彩，說出你的獨特觀點。','卡片設計 · PNG 匯出','#e9e8f4'],['research','⚗','研發實驗室','從一個好奇，走向下一個新發現。','問題拆解 · 實驗計畫','#e3edf1'],['finished','✧','創作成品館','整理、收藏，讓你的作品持續發光。','成品紀錄 · 本機收藏','#f6eedb']];
-function el(tag,text,cls){const e=document.createElement(tag);e.textContent=text;if(cls)e.className=cls;return e;}
-function toast(t){$('#toast').textContent=t;$('#toast').style.display='block';setTimeout(()=>$('#toast').style.display='none',3200);}
-function persist(){try{localStorage.setItem(key,JSON.stringify(state));return true;}catch{toast('儲存空間不足或瀏覽器禁止儲存，請匯出備份。');return false;}}
-function render(){const grid=$('#theme-grid');grid.replaceChildren();[...themes,...state.themes.map(t=>[t.id,'＋',t.name,'留一個空間，探索你的下一個想法。','專屬主題','#e8efe5'])].forEach(t=>{const b=el('button','','theme');b.style.setProperty('--tint',t[5]);b.append(el('span',t[1],'icon'),el('h3',t[2]),el('p',t[3]),el('span',t[4],'tag'),el('span','↗','arrow'));b.onclick=()=>openStudio(t);grid.append(b);});const add=el('button','','theme add');add.append(el('span','＋','icon'),el('h3','下一個主題，由你定義'),el('p','新增你的專屬創作空間'));add.onclick=addTheme;grid.append(add);renderWorks();}
-function saveWork(title,body,type){state.works.unshift({id:crypto.randomUUID(),title,body,type,date:new Date().toISOString()});if(persist()){renderWorks();toast('已儲存至這台裝置');}}
-function renderWorks(){const list=$('#works-list');list.replaceChildren();$('#count').textContent=state.works.length;if(!state.works.length){const empty=el('div','','empty');empty.append(el('b','✧'),el('span','這裡將收藏你的第一個好點子。選擇上方主題，開始創作吧。'));list.append(empty);}state.works.forEach(w=>{const card=el('article','','work');card.append(el('h3',w.title),el('small',new Date(w.date).toLocaleString('zh-TW')),el('pre',w.body));const row=el('div','','row'),d=el('button','下載文字','small'),del=el('button','刪除','small');d.onclick=()=>download(w.body,w.title+'.txt','text/plain;charset=utf-8');del.onclick=()=>{if(confirm('確定刪除這筆作品？')){state.works=state.works.filter(x=>x.id!==w.id);persist();renderWorks();}};row.append(d,del);card.append(row);list.append(card);});}
-function download(data,name,type){const url=URL.createObjectURL(new Blob([data],{type}));const a=el('a','');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);}
-function modal(html){$('#modal-body').innerHTML=html;$('#modal').showModal();}
-function addTheme(){modal('<h2>新增你的主題</h2><form id="theme-form"><label for="theme-name">主題名稱</label><input id="theme-name" maxlength="30" required placeholder="例如：音樂創作"><p class="muted">自訂主題提供構想整理、文字下載與作品收藏。</p><button class="button">建立主題 ＋</button></form>');$('#theme-form').onsubmit=e=>{e.preventDefault();const name=$('#theme-name').value.trim();if(!name)return;state.themes.push({id:crypto.randomUUID(),name});persist();render();$('#modal').close();};}
-$('#add-theme').onclick=addTheme;$('#close-modal').onclick=()=>$('#modal').close();$('#close-studio').onclick=()=>$('#studio').hidden=true;
-function openStudio(t){$('#studio').hidden=false;$('#studio-title').textContent=t[2];$('#studio-desc').textContent='免費規則式創作助理 · 在你的瀏覽器內處理，不會上傳檔案。';const b=$('#studio-body');if(t[0]==='sticker'){sticker(b);}else if(t[0]==='art'){art(b);}else{planner(b,t);if(t[0]==='video')videoEditor(b);}$('#studio').scrollIntoView({behavior:'smooth'});}
-function planner(b,t){const isVideo=t[0]==='video',isResearch=t[0]==='research',isFinished=t[0]==='finished';b.innerHTML=`<form id="plan-form"><label for="idea">${isFinished?'作品名稱':'創作主題'}</label><input id="idea" maxlength="150" required placeholder="例如：城市裡的一小片綠意"><label for="details">${isFinished?'作品說明與公開連結（選填）':'對象、風格與想達成的目標'}</label><textarea id="details" maxlength="5000" placeholder="記錄你的想法…"></textarea><button class="button">${isFinished?'儲存成品紀錄':'產生企劃草稿'} ↗</button></form><div id="plan-output"></div>`;$('#plan-form').onsubmit=e=>{e.preventDefault();const idea=$('#idea').value.trim(),details=$('#details').value.trim();if(!idea)return;let text;if(isVideo)text=`《${idea}》｜30 秒影片分鏡草稿\n方向：${details||'溫暖、自然，適合第一次觀看的觀眾'}\n\n00–05 秒｜開場：以「${idea}」相關特寫引起注意。\n字幕：你是否也曾有這樣的瞬間？\n05–15 秒｜發展：拍攝三個具體細節，以近景、中景、全景交替。\n旁白：用自己的經驗，介紹這個主題。\n15–25 秒｜轉折：呈現改變前後，或最重要的發現。\n25–30 秒｜結尾：回到開場畫面，留下一句你的觀點。\n\n拍攝清單：主體特寫、環境全景、手部動作、結尾畫面。\n建議直式 9:16、1080×1920；確認影像、音樂與人物授權。\n這是腳本草稿，尚未生成或剪輯影片。`;else if(isResearch)text=`研發題目：${idea}\n背景與限制：${details||'待補充'}\n\n1. 問題：目前遇到什麼困難？誰最需要解決？\n2. 假設：改善一項關鍵因素，是否能提高結果？\n3. 最小實驗：製作一個原型，與現有做法比較。\n4. 紀錄：測試條件、樣本數、時間、成本與結果。\n5. 評估：事前訂定成功門檻；記錄失敗與非預期結果。\n6. 下一步：根據數據保留、修正或停止假設。\n\n此為通用實驗模板，尚未執行研究或驗證結論。`;else if(isFinished)text=details||'尚未填寫作品說明';else text=`主題：${idea}\n構想：${details||'待補充'}\n\n目標：我希望誰看見這個作品？\n特色：最想保留的三個元素是什麼？\n第一步：今天可以完成的最小版本。\n完成標準：如何判斷作品已完成？\n下一步：收集回饋並修正。`;const out=$('#plan-output');out.replaceChildren(el('pre',text,'result'));const save=el('button','收藏這份草稿','button'),dl=el('button','下載 TXT','small');save.onclick=()=>saveWork(idea,text,t[0]);dl.onclick=()=>download(text,idea+'.txt','text/plain;charset=utf-8');out.append(save,document.createTextNode(' '),dl);if(isFinished){saveWork(idea,text,t[0]);}};}
-function art(b){b.innerHTML='<form id="art-form"><label for="card-title">卡片標題</label><input id="card-title" maxlength="24" value="給今天一點新的可能" required><label for="card-text">內文（最多 100 字）</label><textarea id="card-text" maxlength="100">慢慢來，也是在前進。\n讓每一個小小的靈感，都有發生的空間。</textarea><label for="palette">配色</label><select id="palette"><option value="green">森林綠</option><option value="sand">暖沙色</option><option value="night">午夜藍</option></select><div class="row"><button class="button">更新預覽</button><button type="button" id="png" class="small">下載 PNG ↓</button><button type="button" id="save-card" class="small">收藏文字</button></div></form><canvas id="card" class="preview" width="1080" height="1080" aria-label="圖文卡片預覽"></canvas>';let rendered;const draw=()=>{const title=$('#card-title').value,text=$('#card-text').value,p=$('#palette').value;rendered={title,text,p};const c=$('#card'),x=c.getContext('2d'),colors={green:['#e9efdf','#245648'],sand:['#f5e7cd','#76502e'],night:['#253750','#f5e9d3']}[p];x.fillStyle=colors[0];x.fillRect(0,0,1080,1080);x.strokeStyle=colors[1];x.lineWidth=2;x.strokeRect(55,55,970,970);x.fillStyle=colors[1];x.font='100px sans-serif';x.fillText('✳',100,210);function lines(s,y,size,width){x.font=`${size===58?'bold ':''}${size}px sans-serif`;let line='';for(const ch of s){if(ch==='\n'||x.measureText(line+ch).width>width){x.fillText(line,100,y);y+=size*1.65;line=ch==='\n'?'':ch;}else line+=ch;}x.fillText(line,100,y);return y;}const end=lines(title,390,58,880);lines(text,end+110,32,860);x.font='22px sans-serif';x.fillText('多元智能空間 / MADE BY YOU',100,965);};$('#art-form').onsubmit=e=>{e.preventDefault();draw();};$('#png').onclick=()=>{draw();$('#card').toBlob(blob=>{if(blob)download(blob,'多元智能空間-圖文卡片.png','image/png');});};$('#save-card').onclick=()=>{draw();saveWork(rendered.title,rendered.text,'art');};draw();}
-function sticker(b){b.innerHTML=`<div class="notice">靜態貼圖檢查工具，不代表 LINE 審核通過。官方規格頁本次無法存取（403），以下規格送審前請再核對；動態、表情貼及大貼圖不適用。</div><ul class="rule-list"><li>貼圖數量：8、16、24、32 或 40 張；每張最大 370 × 320 px，寬高均為偶數。</li><li>主圖：240 × 240 px；聊天室標籤圖：96 × 74 px。</li><li>PNG、RGB、透明背景；每張不超過 1 MB。官方建議解析度至少 72 dpi，圖案與邊緣約留 10 px 空白。</li><li>整包 ZIP 不超過 60 MB；不得侵權、冒用角色或包含違規內容。</li><li><a href="https://creator.line.me/zh-hant/guideline/sticker/" target="_blank" rel="noopener">LINE 官方製作準則 ↗</a> · <a href="https://creator.line.me/zh-hant/review_guideline/" target="_blank" rel="noopener">官方審核準則 ↗</a></li></ul><label for="asset-role">檔案用途</label><select id="asset-role"><option value="sticker">貼圖圖片（一次選取整組）</option><option value="main">主圖</option><option value="tab">聊天室標籤圖</option></select><label for="assets">選擇 PNG 圖片（僅在本機檢查）</label><input type="file" id="assets" accept="image/png" multiple><div id="asset-report" class="result">尚未選取檔案。</div><p class="muted">可自動檢查格式、尺寸、張數、大小及透明像素；色彩模式、DPI、10px 留白、內容授權與 ZIP 大小需人工確認。</p><label class="check"><input type="checkbox" id="rights">我已確認原創或取得商用授權，並人工檢查色彩、解析度、留白與內容準則。</label><div class="row"><button id="save-sticker" class="button">儲存檢查紀錄</button><a class="small" href="https://creator.line.me/zh-hant/" target="_blank" rel="noopener">前往 Creators Market 送審 ↗</a></div><p class="muted">送審需自行登入、建立商品、上傳全部素材及填寫資料。平台無法代為上架，也不保證審核或收益；售價與分潤依 LINE 現行規定。</p>`;let report='';$('#assets').onchange=async()=>{const files=[...$('#assets').files],role=$('#asset-role').value;report='';if(files.length>40||files.reduce((n,f)=>n+f.size,0)>60*1024*1024){$('#asset-report').textContent='超出檢查上限：最多 40 個檔案、總計 60 MB。';return;}const lines=[role==='sticker'?([8,16,24,32,40].includes(files.length)?'✓ 張數符合':'✗ 貼圖需為 8、16、24、32 或 40 張'):(files.length===1?'✓ 已選一張圖片':'✗ 此用途請選一張圖片')];for(const f of files){try{const data=new Uint8Array(await f.arrayBuffer());if(![137,80,78,71,13,10,26,10].every((v,i)=>data[i]===v))throw Error('不是 PNG');const img=await createImageBitmap(f),w=img.width,h=img.height;const valid=role==='main'?w===240&&h===240:role==='tab'?w===96&&h===74:w<=370&&h<=320&&w%2===0&&h%2===0;let transparent=false;if(w*h<=1000000){const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.drawImage(img,0,0);const pixels=ctx.getImageData(0,0,w,h).data;for(let i=3;i<pixels.length;i+=4)if(pixels[i]<255){transparent=true;break;}}img.close();lines.push(`${valid&&f.size<=1024*1024&&transparent?'✓':'✗'} ${f.name}：${w}×${h} · ${Math.ceil(f.size/1024)} KB · ${valid?'尺寸符合':'尺寸不符'} · ${transparent?'含透明像素':'未確認透明背景'}${f.size>1024*1024?' · 超過 1 MB':''}`);}catch(e){lines.push('✗ '+f.name+'：無法讀取有效 PNG');}}report=lines.join('\n');$('#asset-report').textContent=report;};$('#asset-role').onchange=()=>{$('#assets').value='';report='';$('#asset-report').textContent='用途已更改，請重新選取檔案。';};$('#save-sticker').onclick=()=>{if(!report)return toast('請先選擇圖片並完成檢查');saveWork('LINE 貼圖規格檢查',report+'\n人工確認：'+($('#rights').checked?'已勾選':'尚未確認')+'\n注意：此紀錄不代表審核通過。','sticker');};}
-$('#share').onclick=()=>{modal('<h2>把創作空間分享出去</h2><p class="muted">掃描 QR 碼即可開啟網站。分享的是網站網址，不含你裝置內的作品。</p><label for="share-url">公開網址</label><input id="share-url" type="url"><div id="qr"></div><p id="qr-note" class="muted"></p><button id="copy-url" class="button">複製網址</button>');const input=$('#share-url');input.value=location.href.split('#')[0];function update(){try{const url=new URL(input.value);if(!['https:','http:'].includes(url.protocol))throw Error();const qr=qrcode(0,'M');qr.addData(url.href);qr.make();$('#qr').innerHTML=qr.createSvgTag({cellSize:5,margin:4,scalable:true});$('#qr-note').textContent=['localhost','127.0.0.1'].includes(url.hostname)?'目前是本機網址，其他裝置無法開啟。部署後請使用公開網址。':'確認網站已公開部署後，即可分享此 QR 碼。';}catch{$('#qr').replaceChildren();$('#qr-note').textContent='請填入有效且長度合理的 HTTP(S) 網址。';}}input.oninput=update;update();$('#copy-url').onclick=async()=>{try{await navigator.clipboard.writeText(input.value);toast('已複製網址');}catch{input.select();toast('請長按或使用 Ctrl/Cmd+C 複製');}};};
-$('#export').onclick=()=>download(JSON.stringify(state,null,2),'多元智能空間-備份.json','application/json');$('#import').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{if(f.size>5*1024*1024)throw Error();const s=JSON.parse(await f.text());if(!s||!Array.isArray(s.themes)||!Array.isArray(s.works)||s.themes.length>100||s.works.length>1000||!s.themes.every(t=>typeof t.id==='string'&&typeof t.name==='string'&&t.name.length<=100)||!s.works.every(w=>['id','title','body','type','date'].every(k=>typeof w[k]==='string')))throw Error();if(confirm('匯入會取代這台裝置的現有資料。已先備份了嗎？')){state=s;persist();render();toast('匯入完成');}}catch{toast('備份格式錯誤或超過 5 MB，無法匯入');}e.target.value='';};render();
-
-function videoEditor(b){
- const section=document.createElement('section');section.innerHTML=`<hr><h3>免費圖片影片合成</h3><p class="muted">選擇 1–12 張照片，在本機合成直式 720×1280、無聲 WebM 影片。處理期間請保持此分頁開啟。</p><label for="video-files">照片（依檔案選取順序播放，每張最多 10 MB）</label><input id="video-files" type="file" accept="image/png,image/jpeg,image/webp" multiple><label for="duration">每張秒數</label><select id="duration"><option value="2">2 秒</option><option value="3" selected>3 秒</option><option value="5">5 秒</option></select><div class="row"><button id="render-video" class="button">合成並下載影片 ↓</button><button id="cancel-video" class="small" disabled>取消</button></div><p id="video-status" role="status" class="muted">尚未選擇照片。WebM 可用免費剪輯工具轉為其他格式。</p><canvas id="video-canvas" width="720" height="1280" class="preview" hidden></canvas>`;b.append(section);
- const start=section.querySelector('#render-video'),cancel=section.querySelector('#cancel-video'),status=section.querySelector('#video-status'),canvas=section.querySelector('canvas');let stop=false;
- cancel.onclick=()=>{stop=true;};
- start.onclick=async()=>{
-  const files=[...section.querySelector('#video-files').files];if(!files.length||files.length>12)return toast('請選擇 1–12 張照片');if(files.some(f=>f.size>10*1024*1024))return toast('每張照片需小於 10 MB');
-  if(!window.MediaRecorder||!canvas.captureStream)return toast('此瀏覽器不支援影片合成，請使用新版 Chrome 或 Edge');
-  const mime=['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'].find(v=>MediaRecorder.isTypeSupported(v));if(!mime)return toast('此瀏覽器不支援 WebM 匯出，請使用 Chrome 或 Edge');
-  let stream,recorder,images=[];start.disabled=true;cancel.disabled=false;stop=false;
-  try{
-   for(const f of files){const img=await createImageBitmap(f);if(img.width*img.height>24000000){img.close();throw Error('照片解析度過大，請縮小至 2400 萬像素以下');}images.push(img);}
-   canvas.hidden=false;const ctx=canvas.getContext('2d');function draw(img){ctx.fillStyle='#172e26';ctx.fillRect(0,0,720,1280);const scale=Math.min(720/img.width,1280/img.height);const w=img.width*scale,h=img.height*scale;ctx.drawImage(img,(720-w)/2,(1280-h)/2,w,h);}
-   draw(images[0]);stream=canvas.captureStream(24);recorder=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:2500000});const chunks=[];recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};const done=new Promise((resolve,reject)=>{recorder.onstop=resolve;recorder.onerror=()=>reject(Error('影片錄製失敗'));});recorder.start(250);
-   const duration=Number(section.querySelector('#duration').value)*1000;
-   for(let i=0;i<images.length&&!stop;i++){status.textContent=`合成中：第 ${i+1} / ${images.length} 張…`;const end=performance.now()+duration;while(performance.now()<end&&!stop){if(!canvas.isConnected){stop=true;break;}draw(images[i]);await new Promise(r=>setTimeout(r,40));}}
-   recorder.stop();await done;if(stop){status.textContent='已取消，未匯出影片。';}else{const blob=new Blob(chunks,{type:mime});if(!blob.size)throw Error('未產生影片資料');download(blob,'多元智能空間-圖片影片.webm',mime);status.textContent=`完成！${images.length} 張照片，約 ${images.length*duration/1000} 秒。影片已下載。`;}
-  }catch(e){status.textContent='無法合成：'+e.message;}finally{if(recorder&&recorder.state!=='inactive')recorder.stop();if(stream)stream.getTracks().forEach(t=>t.stop());images.forEach(i=>i.close());start.disabled=false;cancel.disabled=true;}
- };
+import {
+  STORAGE_KEY,
+  LIMIT,
+  normalizeState,
+  filterWorks,
+  uid,
+} from "./core.js";
+import { mountArt, mountStickers, mountVideo } from "./studios.js";
+const $ = (s) => document.querySelector(s);
+const baseThemes = [
+  [
+    "sticker",
+    "☺",
+    "LINE 貼圖工坊",
+    "讓你的角色，走進每一天的對話。",
+    "製作貼圖 · 檢查 · 整包下載",
+    "#ecf0de",
+  ],
+  [
+    "video",
+    "▷",
+    "影片創作室",
+    "把腦海裡的畫面，寫成動人的故事。",
+    "照片影片 · 字幕 · 分鏡",
+    "#f9e9de",
+  ],
+  [
+    "art",
+    "▧",
+    "圖文靈感所",
+    "用文字與色彩，說出你的獨特觀點。",
+    "即時設計 · 多尺寸 PNG",
+    "#e9e8f4",
+  ],
+  [
+    "research",
+    "⚗",
+    "研發實驗室",
+    "從一個好奇，走向下一個新發現。",
+    "實驗規劃 · 紀錄 · 結論",
+    "#e3edf1",
+  ],
+  [
+    "finished",
+    "✧",
+    "創作成品館",
+    "整理、收藏，讓你的作品持續發光。",
+    "作品管理 · 編輯 · 備份",
+    "#f6eedb",
+  ],
+];
+let state = { version: 2, themes: [], works: [], drafts: {} },
+  active = null,
+  cleanup = () => {},
+  editedId = null,
+  dirty = false,
+  draftTimer;
+let startupWarning = "";
+try {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) state = normalizeState(JSON.parse(raw));
+} catch {
+  startupWarning =
+    "無法讀取原有資料或瀏覽器禁止儲存。原始資料未覆寫；請先匯出原始備份或檢查瀏覽器設定。";
 }
+let blocked = !!startupWarning;
+export function el(tag, text = "", cls = "") {
+  const e = document.createElement(tag);
+  e.textContent = text;
+  if (cls) e.className = cls;
+  return e;
+}
+function button(text, fn, cls = "small") {
+  const b = el("button", text, cls);
+  b.type = "button";
+  b.onclick = fn;
+  return b;
+}
+let toastTimer;
+function toast(text) {
+  clearTimeout(toastTimer);
+  $("#toast").textContent = text;
+  $("#toast").style.display = "block";
+  toastTimer = setTimeout(() => ($("#toast").style.display = "none"), 4500);
+}
+function commit(next, quiet = false) {
+  try {
+    if (blocked) throw Error("原有資料尚未恢復，請先備份或匯入有效備份");
+    const json = JSON.stringify(next);
+    if (new Blob([json]).size > LIMIT)
+      throw Error("已達 5 MB 上限，請備份並刪除不需要的作品");
+    localStorage.setItem(STORAGE_KEY, json);
+    state = next;
+    $("#storage-status").textContent =
+      `本機資料 ${Math.ceil(new Blob([json]).size / 1024)} KB / 5 MB`;
+    return true;
+  } catch (e) {
+    $("#draft-status").textContent = "尚未儲存：" + e.message;
+    if (!quiet) toast("儲存失敗：" + e.message);
+    return false;
+  }
+}
+function mutate(fn) {
+  try {
+    const next = structuredClone(state);
+    fn(next);
+    return commit(next);
+  } catch (e) {
+    toast(e.message);
+    return false;
+  }
+}
+function allThemes() {
+  return [
+    ...baseThemes,
+    ...state.themes.map((t) => [
+      t.id,
+      "＋",
+      t.name,
+      "為你的下一個想法，開一個專屬空間。",
+      "自訂主題 · 構想筆記",
+      "#e8efe5",
+    ]),
+  ];
+}
+function themeName(id) {
+  return allThemes().find((t) => t[0] === id)?.[2] || "未分類主題";
+}
+function download(data, name, type = "text/plain;charset=utf-8") {
+  const blob = data instanceof Blob ? data : new Blob([data], { type }),
+    url = URL.createObjectURL(blob),
+    a = el("a");
+  a.href = url;
+  a.download = name.replace(/[\\/:*?"<>|]/g, "-").slice(0, 180);
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+async function copy(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("已複製");
+  } catch {
+    modal(
+      '<h2>複製內容</h2><label for="copy-text">請選取並複製</label><textarea id="copy-text" readonly></textarea>',
+    );
+    $("#copy-text").value = text;
+    $("#copy-text").select();
+  }
+}
+function modal(html) {
+  $("#modal-body").innerHTML = html;
+  $("#modal").showModal();
+}
+function closeModal() {
+  $("#modal").close();
+}
+function saveWork(title, body, type, extra = {}) {
+  if (!title.trim()) return toast("請填寫作品名稱");
+  const id = extra.id || uid();
+  const data = {
+    id,
+    title: title.trim().slice(0, 150),
+    body: body.slice(0, 50000),
+    type,
+    date: new Date().toISOString(),
+    ...extra,
+  };
+  const success = mutate((s) => {
+    const old = s.works.find((w) => w.id === id);
+    if (old) {
+      Object.assign(old, data, {
+        date: old.date,
+        updated: new Date().toISOString(),
+      });
+    } else {
+      if (s.works.length >= 1000) throw Error("作品最多 1000 筆");
+      s.works.unshift(data);
+    }
+  });
+  if (success) {
+    renderWorks();
+    toast(extra.id ? "作品已更新" : "已儲存至這台裝置");
+  }
+  return success ? id : null;
+}
+function renderThemes() {
+  const grid = $("#theme-grid");
+  grid.replaceChildren();
+  allThemes().forEach((t) => {
+    const card = el("article", "", "theme-wrap");
+    const b = button("", () => openStudio(t), "theme");
+    b.style.setProperty("--tint", t[5]);
+    b.append(
+      el("span", t[1], "icon"),
+      el("h3", t[2]),
+      el("p", t[3]),
+      el("span", t[4], "tag"),
+      el("span", "↗", "arrow"),
+    );
+    card.append(b);
+    if (!baseThemes.some((x) => x[0] === t[0])) {
+      const manage = button(
+        "管理",
+        () => manageTheme(t[0]),
+        "theme-manage small",
+      );
+      manage.setAttribute("aria-label", "管理主題：" + t[2]);
+      card.append(manage);
+    }
+    grid.append(card);
+  });
+  const add = button("", addTheme, "theme add");
+  add.append(
+    el("span", "＋", "icon"),
+    el("h3", "下一個主題，由你定義"),
+    el("p", "新增你的專屬創作空間"),
+  );
+  grid.append(add);
+  refreshFilter();
+}
+function addTheme() {
+  themeModal();
+}
+function manageTheme(id) {
+  themeModal(state.themes.find((t) => t.id === id));
+}
+function themeModal(t) {
+  modal(
+    "<h2>" +
+      (t ? "管理主題" : "新增你的主題") +
+      '</h2><form id="theme-form"><label for="theme-name">主題名稱（最多 30 字）</label><input id="theme-name" maxlength="30" required><div class="row"><button class="button">儲存主題</button><button type="button" id="remove-theme" class="small danger" ' +
+      (t ? "" : "hidden") +
+      '>刪除主題</button></div><p class="muted">刪除主題會保留已收藏作品，並將它們移至成品館。</p></form>',
+  );
+  $("#theme-name").value = t?.name || "";
+  $("#theme-form").onsubmit = (e) => {
+    e.preventDefault();
+    const name = $("#theme-name").value.trim();
+    if (!name) return;
+    if (
+      state.themes.some((x) => x.name === name && x.id !== t?.id) ||
+      baseThemes.some((x) => x[2] === name)
+    )
+      return toast("已有相同名稱的主題");
+    if (!t && state.themes.length >= 100) return toast("最多 100 個自訂主題");
+    if (
+      mutate((s) => {
+        if (t) s.themes.find((x) => x.id === t.id).name = name;
+        else s.themes.push({ id: uid(), name });
+      })
+    ) {
+      renderThemes();
+      renderWorks();
+      closeModal();
+      if (active?.[0] === t?.id) $("#studio-title").textContent = name;
+    }
+  };
+  $("#remove-theme").onclick = () => {
+    if (!confirm("確定刪除此主題？收藏作品將保留在成品館。")) return;
+    if (active?.[0] === t.id) {
+      flushDraft();
+      cleanup();
+      active = null;
+      $("#studio").hidden = true;
+    }
+    if (
+      mutate((s) => {
+        s.themes = s.themes.filter((x) => x.id !== t.id);
+        s.works.forEach((w) => {
+          if (w.type === t.id) w.type = "finished";
+        });
+        delete s.drafts[t.id];
+      })
+    ) {
+      renderThemes();
+      renderWorks();
+      closeModal();
+    }
+  };
+}
+function refreshFilter() {
+  const selected = $("#work-type").value;
+  $("#work-type").replaceChildren(new Option("所有主題", ""));
+  for (const t of allThemes()) $("#work-type").add(new Option(t[2], t[0]));
+  if ([...$("#work-type").options].some((o) => o.value === selected))
+    $("#work-type").value = selected;
+}
+function renderWorks() {
+  const list = $("#works-list");
+  list.replaceChildren();
+  $("#count").textContent = state.works.length;
+  const works = filterWorks(
+    state.works,
+    $("#work-search").value,
+    $("#work-type").value,
+    $("#favorite-only").checked,
+    $("#work-sort").value,
+  );
+  $("#work-results").textContent =
+    `顯示 ${works.length} / ${state.works.length} 筆`;
+  if (!works.length) {
+    const empty = el("div", "", "empty");
+    empty.append(
+      el("b", "✧"),
+      el(
+        "span",
+        state.works.length
+          ? "沒有符合的作品，試試其他關鍵字或分類。"
+          : "選一個主題，開始你的第一件作品。",
+      ),
+    );
+    list.append(empty);
+    return;
+  }
+  for (const w of works) {
+    const card = el("article", "", "work"),
+      top = el("div", "", "work-heading"),
+      meta = el("div");
+    meta.append(
+      el("h3", w.title),
+      el(
+        "small",
+        themeName(w.type) +
+          " · " +
+          new Date(w.updated || w.date).toLocaleString("zh-TW"),
+      ),
+    );
+    const fav = button(w.favorite ? "★ 已收藏" : "☆ 收藏", () => {
+      if (
+        mutate((s) => {
+          const item = s.works.find((x) => x.id === w.id);
+          item.favorite = !item.favorite;
+        })
+      )
+        renderWorks();
+    });
+    fav.setAttribute("aria-pressed", String(!!w.favorite));
+    top.append(meta, fav);
+    card.append(top, el("pre", w.body));
+    const row = el("div", "", "work-actions");
+    row.append(
+      button("編輯", () => editWork(w)),
+      button("複製", () => copy(w.body)),
+      button("下載 TXT", () => download(w.body, w.title + ".txt")),
+      button(
+        "刪除",
+        () => {
+          if (!confirm("確定刪除「" + w.title + "」？此操作無法復原。")) return;
+          if (
+            mutate((s) => {
+              s.works = s.works.filter((x) => x.id !== w.id);
+            })
+          )
+            renderWorks();
+        },
+        "small danger",
+      ),
+    );
+    if (w.art)
+      row.prepend(button("重開圖文設計", () => openStudio(baseThemes[2], w)));
+    card.append(row);
+    list.append(card);
+  }
+}
+function editWork(w) {
+  modal(
+    '<h2>編輯作品</h2><form id="edit-work"><label for="edit-title">作品名稱</label><input id="edit-title" maxlength="150" required><label for="edit-body">內容</label><textarea id="edit-body" maxlength="50000" rows="12"></textarea><label for="edit-type">分類</label><select id="edit-type"></select><div class="row"><button class="button">儲存變更</button></div><p class="muted">圖文設計另可透過「重開圖文設計」調整版型。</p></form>',
+  );
+  $("#edit-title").value = w.title;
+  $("#edit-body").value = w.body;
+  for (const t of allThemes()) $("#edit-type").add(new Option(t[2], t[0]));
+  $("#edit-type").value = [...$("#edit-type").options].some(
+    (o) => o.value === w.type,
+  )
+    ? w.type
+    : "finished";
+  $("#edit-work").onsubmit = (e) => {
+    e.preventDefault();
+    if (
+      saveWork(
+        $("#edit-title").value,
+        $("#edit-body").value,
+        $("#edit-type").value,
+        {
+          ...w,
+          title: $("#edit-title").value.trim(),
+          body: $("#edit-body").value,
+          type: $("#edit-type").value,
+        },
+      )
+    )
+      closeModal();
+  };
+}
+function fields() {
+  const out = {};
+  for (const e of $("#studio-body").querySelectorAll(
+    "input[id],select[id],textarea[id]",
+  ))
+    if (!["file", "checkbox", "button", "submit"].includes(e.type) && e.id)
+      out[e.id] = e.value;
+  return out;
+}
+function flushDraft() {
+  clearTimeout(draftTimer);
+  if (!active || !dirty) return true;
+  const next = structuredClone(state);
+  Object.defineProperty(next.drafts, active[0], {
+    value: fields(),
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
+  const ok = commit(next);
+  if (ok) {
+    dirty = false;
+    $("#draft-status").textContent =
+      "文字草稿已自動儲存（照片／音訊需重新選取）";
+  }
+  return ok;
+}
+function draftInput(e) {
+  if (e.target.matches("input,select,textarea") && e.target.type !== "file") {
+    dirty = true;
+    $("#draft-status").textContent = "正在儲存草稿…";
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(flushDraft, 500);
+  }
+}
+function openStudio(t, work = null) {
+  if (active && !flushDraft() && !confirm("文字草稿尚未儲存，確定切換？"))
+    return;
+  cleanup();
+  editedId = work?.id || null;
+  active = t;
+  dirty = false;
+  $("#studio").hidden = false;
+  $("#studio-title").textContent = t[2];
+  $("#studio-desc").textContent =
+    "免費本機創作工具 · 不需帳號、不上傳素材 · 文字草稿自動儲存";
+  $("#draft-status").textContent = "照片、音訊與輸出檔案請自行下載保存。";
+  const previous = $("#studio-body"),
+    b = previous.cloneNode(false);
+  previous.replaceWith(b);
+  const api = {
+    toast,
+    download,
+    saveWork,
+    el,
+    button,
+    copy,
+    onChange: () => {
+      dirty = true;
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(flushDraft, 500);
+    },
+  };
+  cleanup = () => {};
+  if (t[0] === "art") cleanup = mountArt(b, api, work) || cleanup;
+  else if (t[0] === "sticker") cleanup = mountStickers(b, api) || cleanup;
+  else {
+    planner(b, t, api);
+    if (t[0] === "video") cleanup = mountVideo(b, api) || cleanup;
+  }
+  if (!work) {
+    const draft = Object.hasOwn(state.drafts, t[0]) ? state.drafts[t[0]] : null;
+    if (draft) {
+      for (const e of b.querySelectorAll("input[id],textarea[id],select[id]"))
+        if (
+          e.type !== "file" &&
+          e.type !== "checkbox" &&
+          Object.hasOwn(draft, e.id)
+        ) {
+          const value = draft[e.id];
+          if (e.tagName === "SELECT") {
+            if ([...e.options].some((option) => option.value === value))
+              e.value = value;
+          } else
+            e.value = e.maxLength >= 0 ? value.slice(0, e.maxLength) : value;
+        }
+      b.dispatchEvent(new CustomEvent("restore-draft"));
+      $("#draft-status").textContent = "已還原文字草稿；照片／音訊請重新選取。";
+    }
+  }
+  b.oninput = draftInput;
+  b.onchange = draftInput;
+  const heading = $("#studio-title");
+  heading.tabIndex = -1;
+  heading.focus({ preventScroll: true });
+  $("#studio").scrollIntoView({ behavior: "smooth" });
+}
+function planner(b, t, api) {
+  const type = t[0],
+    research = type === "research",
+    finished = type === "finished";
+  b.innerHTML = `<form id="plan-form"><label for="idea">${finished ? "作品名稱" : "創作主題"}</label><input id="idea" maxlength="150" required placeholder="例如：城市裡的一小片綠意"><label for="details">${finished ? "作品說明" : "對象、背景與目標"}</label><textarea id="details" maxlength="5000" rows="4"></textarea>${research ? '<div class="form-grid"><div><label for="hypothesis">可測試的假設</label><textarea id="hypothesis" maxlength="2000" placeholder="如果改變…，那麼…"></textarea></div><div><label for="metric">成功標準與測量方法</label><textarea id="metric" maxlength="2000" placeholder="例如：與現有方法相比，時間縮短 20%"></textarea></div><div><label for="method">實驗步驟與對照條件</label><textarea id="method" maxlength="3000"></textarea></div><div><label for="findings">觀察結果與結論</label><textarea id="findings" maxlength="3000" placeholder="未執行可留空；勿將假設當結論"></textarea></div></div>' : ""}${finished ? '<label for="work-url">公開作品連結（選填，限 HTTP(S)）</label><input id="work-url" type="url" placeholder="https://…">' : ""}<div class="row"><button class="button">${finished ? "儲存成品紀錄" : "產生可編輯草稿"} ↗</button></div></form><div id="plan-output"></div>`;
+  let savedId = null;
+  $("#plan-form").onsubmit = (e) => {
+    e.preventDefault();
+    const idea = $("#idea").value.trim(),
+      details = $("#details").value.trim();
+    if (!idea) return toast("請填寫主題");
+    let text;
+    if (type === "video")
+      text = `《${idea}》｜30 秒影片分鏡\n方向：${details || "自然、清楚，讓第一次觀看的人也能理解"}\n\n00–05 秒｜開場：用「${idea}」的具體畫面提出問題。\n05–15 秒｜發展：三個細節，依序搭配近景、中景、全景。\n15–25 秒｜轉折：呈現變化前後，以及你的發現。\n25–30 秒｜結尾：回應開場，留下一句核心訊息。\n\n拍攝清單：環境、主體特寫、實際操作、結尾。\n請確認人物、照片與音樂授權。此為規則式企劃模板，可在下方修改。`;
+    else if (research)
+      text = `研發題目：${idea}\n背景與目標：${details || "待補充"}\n\n假設：${$("#hypothesis").value || "待定義"}\n成功標準與測量方法：${$("#metric").value || "待定義"}\n實驗步驟與對照：${$("#method").value || "先做最小原型，記錄時間、成本與樣本數。"}\n觀察結果：${$("#findings").value || "尚未執行，不作結論。"}\n\n風險與限制：樣本是否足夠？是否存在其他影響因素？\n下一步：依結果保留、修正或停止假設。`;
+    else if (finished) {
+      const url = $("#work-url").value.trim();
+      if (url && !/^https?:\/\//i.test(url))
+        return toast("作品連結請使用 HTTP(S)");
+      text = (details || "尚未填寫說明") + (url ? "\n\n作品連結：" + url : "");
+      const id = saveWork(idea, text, type, savedId ? { id: savedId } : {});
+      if (id) savedId = id;
+      return;
+    } else
+      text = `主題：${idea}\n構想：${details || "待補充"}\n\n目標對象：\n獨特之處：\n今天能完成的最小版本：\n完成標準：\n下一步與待辦：`;
+    const output = $("#plan-output");
+    output.innerHTML =
+      '<label for="plan-text">編輯你的草稿</label><textarea id="plan-text" rows="14" maxlength="50000"></textarea><div class="row" id="plan-actions"></div>';
+    const field = $("#plan-text");
+    field.value = text;
+    const actions = $("#plan-actions");
+    actions.append(
+      api.button(
+        "收藏／更新草稿",
+        () => {
+          const id = saveWork(
+            idea,
+            field.value,
+            type,
+            savedId ? { id: savedId } : {},
+          );
+          if (id) savedId = id;
+        },
+        "button",
+      ),
+      api.button("下載 TXT", () => download(field.value, idea + ".txt")),
+      api.button("複製", () => copy(field.value)),
+    );
+    dirty = true;
+    $("#draft-status").textContent = "正在儲存草稿…";
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(flushDraft, 500);
+  };
+  b.addEventListener(
+    "restore-draft",
+    () => {
+      if (
+        Object.hasOwn(state.drafts, t[0]) &&
+        state.drafts[t[0]]?.["plan-text"]
+      ) {
+        const saved = state.drafts[t[0]]["plan-text"];
+        $("#plan-form").requestSubmit();
+        if ($("#plan-text")) $("#plan-text").value = saved;
+        dirty = false;
+      }
+    },
+    { once: true },
+  );
+}
+$("#close-studio").onclick = () => {
+  if (!flushDraft() && !confirm("草稿尚未儲存，確定關閉？")) return;
+  cleanup();
+  active = null;
+  dirty = false;
+  $("#studio").hidden = true;
+  $("#themes").scrollIntoView();
+};
+$("#clear-draft").onclick = () => {
+  if (!active || !confirm("清除此主題的文字草稿？已收藏作品不受影響。")) return;
+  const t = active;
+  if (mutate((s) => delete s.drafts[t[0]])) {
+    dirty = false;
+    cleanup();
+    active = null;
+    openStudio(t);
+  }
+};
+$("#close-modal").onclick = closeModal;
+$("#add-theme").onclick = addTheme;
+$("#manage-themes").onclick = () => {
+  modal('<h2>我的自訂主題</h2><div id="theme-manager"></div>');
+  if (!state.themes.length)
+    $("#theme-manager").append(el("p", "尚無自訂主題。"));
+  for (const t of state.themes)
+    $("#theme-manager").append(button(t.name, () => manageTheme(t.id)));
+};
+for (const id of ["work-search", "work-type", "work-sort", "favorite-only"])
+  $("#" + id).addEventListener(
+    id === "work-search" ? "input" : "change",
+    renderWorks,
+  );
+$("#export").onclick = () => {
+  flushDraft();
+  try {
+    const raw = blocked
+      ? localStorage.getItem(STORAGE_KEY)
+      : JSON.stringify(state, null, 2);
+    download(
+      raw || "{}",
+      "多元智能空間-備份-" + new Date().toISOString().slice(0, 10) + ".json",
+      "application/json",
+    );
+  } catch (e) {
+    toast("無法讀取本機資料：" + e.message);
+  }
+};
+$("#import-file").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    if (file.size > LIMIT) throw Error("超過 5 MB");
+    const imported = normalizeState(JSON.parse(await file.text()));
+    modal(
+      '<h2>匯入備份</h2><p id="import-summary"></p><p class="notice">取代前請先備份；合併會保留本機相同 ID 的較新版本，不覆寫現有草稿。</p><div class="row"><button id="merge-backup" class="button">合併資料</button><button id="replace-backup" class="small danger">取代全部資料</button></div>',
+    );
+    $("#import-summary").textContent =
+      `備份含 ${imported.themes.length} 個主題、${imported.works.length} 筆作品。`;
+    const apply = (replace) => {
+      try {
+        flushDraft();
+        let next;
+        if (replace) {
+          if (!confirm("確定取代全部本機資料？")) return;
+          next = imported;
+        } else {
+          next = structuredClone(state);
+          for (const theme of imported.themes)
+            if (!next.themes.some((t) => t.id === theme.id))
+              next.themes.push(theme);
+          for (const work of imported.works) {
+            const i = next.works.findIndex((w) => w.id === work.id);
+            if (i < 0) next.works.push(work);
+            else if (
+              Date.parse(work.updated || work.date) >
+              Date.parse(next.works[i].updated || next.works[i].date)
+            )
+              next.works[i] = work;
+          }
+          for (const [id, draft] of Object.entries(imported.drafts)) {
+            if (!Object.hasOwn(next.drafts, id))
+              Object.defineProperty(next.drafts, id, {
+                value: draft,
+                enumerable: true,
+                writable: true,
+                configurable: true,
+              });
+          }
+          next = normalizeState(next);
+        }
+        const wasBlocked = blocked;
+        blocked = false;
+        if (commit(next)) {
+          cleanup();
+          active = null;
+          dirty = false;
+          $("#studio").hidden = true;
+          $("#data-warning").hidden = true;
+          renderThemes();
+          renderWorks();
+          closeModal();
+          toast("匯入完成");
+        } else blocked = wasBlocked;
+      } catch (err) {
+        toast("無法匯入：" + err.message);
+      }
+    };
+    $("#merge-backup").onclick = () => apply(false);
+    $("#replace-backup").onclick = () => apply(true);
+  } catch (err) {
+    toast("無法匯入：" + err.message);
+  }
+  e.target.value = "";
+};
+$("#share").onclick = () => {
+  modal(
+    '<h2>分享創作空間</h2><p class="muted">QR 碼分享網站網址，不會分享你的本機作品。</p><label for="share-url">公開網址</label><input id="share-url" type="url"><div id="qr"></div><p id="qr-note" role="status" class="muted"></p><div class="row"><button id="copy-url" class="button">複製網址</button><button id="download-qr" class="small">下載 QR 碼</button></div>',
+  );
+  const input = $("#share-url");
+  input.value = location.href.split("#")[0];
+  let svg = "",
+    validUrl = "";
+  function update() {
+    try {
+      const url = new URL(input.value);
+      if (
+        !["http:", "https:"].includes(url.protocol) ||
+        url.username ||
+        url.password
+      )
+        throw Error();
+      const qr = window.qrcode(0, "M");
+      window.qrcode.stringToBytes = (s) =>
+        Array.from(new TextEncoder().encode(s));
+      qr.addData(url.href);
+      qr.make();
+      svg = qr.createSvgTag({ cellSize: 6, margin: 4, scalable: true });
+      validUrl = url.href;
+      $("#qr").innerHTML = svg;
+      $("#qr svg").setAttribute("aria-label", "開啟網站的 QR 碼");
+      $("#qr-note").textContent = [
+        "localhost",
+        "127.0.0.1",
+        "0.0.0.0",
+      ].includes(url.hostname)
+        ? "此為本機網址，其他裝置無法使用。公開部署後請使用正式網址。"
+        : "掃描即可開啟此網址；請確認網站可公開存取。";
+      $("#download-qr").disabled = false;
+      $("#copy-url").disabled = false;
+    } catch {
+      validUrl = "";
+      svg = "";
+      $("#qr").replaceChildren();
+      $("#qr-note").textContent =
+        "請輸入有效的 HTTP(S) 網址，且不要包含帳號密碼。";
+      $("#download-qr").disabled = true;
+      $("#copy-url").disabled = true;
+    }
+  }
+  input.oninput = update;
+  $("#copy-url").onclick = () => copy(validUrl);
+  $("#download-qr").onclick = () =>
+    download(svg, "多元智能空間-QR.svg", "image/svg+xml");
+  update();
+};
+$("#help").onclick = () =>
+  modal(
+    '<h2>開始使用</h2><ol class="rule-list"><li>選擇主題，填入文字或選取自己的素材。</li><li>文字草稿會自動保存，作品可另外收藏、編輯與下載。</li><li>照片與音訊不會上傳或長期保存，輸出成品請自行下載。</li><li>定期匯出 JSON 備份，換裝置時匯入即可繼續文字工作。</li></ol><p>所有工具免費，不含連線 AI 模型。LINE 上架需自行登入送審。影片匯出依瀏覽器能力提供 WebM 或 MP4。</p><p>隱私：本網站不設帳號、不收集作品，也不提供跨裝置同步。共用裝置請留意本機保存的內容。</p>',
+  );
+window.addEventListener("beforeunload", (e) => {
+  if (dirty && !flushDraft()) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+window.addEventListener("pagehide", flushDraft);
+window.addEventListener("storage", (e) => {
+  if (e.key === STORAGE_KEY) {
+    blocked = true;
+    $("#data-warning").hidden = false;
+    $("#data-warning").textContent =
+      "其他分頁已修改資料。請先下載目前備份，再重新整理以載入最新資料，避免覆寫。";
+  }
+});
+renderThemes();
+renderWorks();
+if (startupWarning) {
+  $("#data-warning").textContent = startupWarning;
+  $("#data-warning").hidden = false;
+} else $("#storage-status").textContent = "資料僅存在這台裝置，建議定期備份。";
