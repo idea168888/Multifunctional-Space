@@ -1,9 +1,12 @@
+import { mountResearch } from "./research.js";
+import { STICKER_STYLES } from "./creative.js";
 import {
   STORAGE_KEY,
   LIMIT,
   normalizeState,
   filterWorks,
   uid,
+  makeZip,
 } from "./core.js";
 import { mountArt, mountStickers, mountVideo } from "./studios.js";
 const $ = (s) => document.querySelector(s);
@@ -55,6 +58,14 @@ let state = { version: 2, themes: [], works: [], drafts: {} },
   editedId = null,
   dirty = false,
   draftTimer;
+let selectedWorks = new Set(),
+  deletedWorks = [];
+const statuses = {
+  idea: "靈感",
+  progress: "製作中",
+  done: "已完成",
+  archived: "已封存",
+};
 let startupWarning = "";
 try {
   const raw = localStorage.getItem(STORAGE_KEY);
@@ -163,6 +174,8 @@ function saveWork(title, body, type, extra = {}) {
     id,
     title: title.trim().slice(0, 150),
     body: body.slice(0, 50000),
+    status: state.works.find((w) => w.id === id)?.status || "idea",
+    tags: state.works.find((w) => w.id === id)?.tags || [],
     type,
     date: new Date().toISOString(),
     ...extra,
@@ -297,7 +310,28 @@ function renderWorks() {
     $("#work-type").value,
     $("#favorite-only").checked,
     $("#work-sort").value,
+  ).filter(
+    (w) =>
+      !$("#work-status").value ||
+      (w.status || "idea") === $("#work-status").value,
   );
+  list.className = "works-view view-" + $("#work-view").value;
+  const board = {};
+  if ($("#work-view").value === "board" && works.length) {
+    for (const [status, label] of Object.entries(statuses)) {
+      const col = el("section", "", "board-column");
+      col.append(el("h3", label));
+      list.append(col);
+      board[status] = col;
+    }
+  }
+  for (const id of selectedWorks)
+    if (!state.works.some((w) => w.id === id)) selectedWorks.delete(id);
+  updateSelection();
+  $("#select-visible").checked =
+    works.length > 0 && works.every((w) => selectedWorks.has(w.id));
+  $("#select-visible").indeterminate =
+    works.some((w) => selectedWorks.has(w.id)) && !$("#select-visible").checked;
   $("#work-results").textContent =
     `顯示 ${works.length} / ${state.works.length} 筆`;
   if (!works.length) {
@@ -337,39 +371,165 @@ function renderWorks() {
         renderWorks();
     });
     fav.setAttribute("aria-pressed", String(!!w.favorite));
-    top.append(meta, fav);
-    card.append(top, el("pre", w.body));
+    const selection = el("input");
+    selection.type = "checkbox";
+    selection.className = "work-select";
+    selection.value = w.id;
+    selection.checked = selectedWorks.has(w.id);
+    selection.setAttribute("aria-label", "選取作品：" + w.title);
+    selection.onchange = () => {
+      if (selection.checked) selectedWorks.add(w.id);
+      else selectedWorks.delete(w.id);
+      updateSelection();
+      const checks = [...document.querySelectorAll(".work-select")];
+      $("#select-visible").checked =
+        checks.length > 0 && checks.every((c) => c.checked);
+      $("#select-visible").indeterminate =
+        checks.some((c) => c.checked) && !$("#select-visible").checked;
+    };
+    top.append(selection, meta, fav);
+    card.append(top);
+    const controls = el("div", "", "work-controls"),
+      status = document.createElement("select");
+    status.setAttribute("aria-label", "作品狀態：" + w.title);
+    for (const [id, name] of Object.entries(statuses))
+      status.add(new Option(name, id));
+    status.value = w.status || "idea";
+    status.onchange = () => {
+      if (
+        mutate(
+          (s) =>
+            (s.works.find((item) => item.id === w.id).status = status.value),
+        )
+      )
+        renderWorks();
+    };
+    controls.append(status);
+    for (const tag of w.tags || [])
+      controls.append(el("span", "#" + tag, "tag"));
+    card.append(controls, el("pre", w.body));
     const row = el("div", "", "work-actions");
     row.append(
       button("編輯", () => editWork(w)),
       button("複製", () => copy(w.body)),
       button("下載 TXT", () => download(w.body, w.title + ".txt")),
-      button(
-        "刪除",
-        () => {
-          if (!confirm("確定刪除「" + w.title + "」？此操作無法復原。")) return;
-          if (
-            mutate((s) => {
-              s.works = s.works.filter((x) => x.id !== w.id);
-            })
-          )
-            renderWorks();
-        },
-        "small danger",
-      ),
+      button("另存副本", () => {
+        const title = w.title.slice(0, 144) + "（副本）";
+        saveWork(title, w.body, w.type, {
+          ...w,
+          id: uid(),
+          title,
+          date: new Date().toISOString(),
+          updated: new Date().toISOString(),
+        });
+      }),
+      button("刪除", () => deleteWorks([w.id]), "small danger"),
     );
     if (w.art)
       row.prepend(button("重開圖文設計", () => openStudio(baseThemes[2], w)));
     card.append(row);
-    list.append(card);
+    (board[w.status || "idea"] || list).append(card);
   }
 }
+function updateSelection() {
+  const count = selectedWorks.size;
+  $("#selection-count").textContent = "已選 " + count + " 筆";
+  for (const id of [
+    "batch-download",
+    "batch-favorite",
+    "batch-done",
+    "batch-archive",
+    "batch-delete",
+  ])
+    $("#" + id).disabled = !count;
+  $("#undo-delete").disabled = !deletedWorks.length;
+}
+function deleteWorks(ids) {
+  if (
+    !confirm(
+      "確定刪除 " +
+        ids.length +
+        " 筆作品？可復原上次刪除；重新整理後復原紀錄會清除。",
+    )
+  )
+    return;
+  const removed = state.works.filter((w) => ids.includes(w.id));
+  if (mutate((s) => (s.works = s.works.filter((w) => !ids.includes(w.id))))) {
+    deletedWorks = removed;
+    ids.forEach((id) => selectedWorks.delete(id));
+    renderWorks();
+    toast("已刪除，可按「復原上次刪除」。");
+  }
+}
+$("#select-visible").onchange = (e) => {
+  for (const c of document.querySelectorAll(".work-select")) {
+    c.checked = e.target.checked;
+    if (c.checked) selectedWorks.add(c.value);
+    else selectedWorks.delete(c.value);
+  }
+  updateSelection();
+};
+$("#batch-delete").onclick = () => deleteWorks([...selectedWorks]);
+for (const [id, field, value] of [
+  ["batch-favorite", "favorite", true],
+  ["batch-done", "status", "done"],
+  ["batch-archive", "status", "archived"],
+])
+  $("#" + id).onclick = () => {
+    if (
+      mutate((s) =>
+        s.works.forEach((w) => {
+          if (selectedWorks.has(w.id)) {
+            w[field] = value;
+            w.updated = new Date().toISOString();
+          }
+        }),
+      )
+    ) {
+      renderWorks();
+      toast("已更新選取作品");
+    }
+  };
+$("#undo-delete").onclick = () => {
+  if (state.works.length + deletedWorks.length > 1000)
+    return toast("作品超過 1000 筆上限");
+  if (
+    mutate((s) => {
+      for (const w of deletedWorks)
+        if (!s.works.some((item) => item.id === w.id)) s.works.push(w);
+    })
+  ) {
+    deletedWorks = [];
+    renderWorks();
+    toast("已復原");
+  }
+};
+$("#batch-download").onclick = () => {
+  const works = state.works.filter((w) => selectedWorks.has(w.id)),
+    encoder = new TextEncoder();
+  const files = works.map((w, i) => ({
+    name: String(i + 1).padStart(3, "0") + ".txt",
+    bytes: encoder.encode(w.title + "\n\n" + w.body),
+  }));
+  files.push({
+    name: "作品備份.json",
+    bytes: encoder.encode(
+      JSON.stringify(
+        { version: 2, themes: state.themes, works, drafts: {} },
+        null,
+        2,
+      ),
+    ),
+  });
+  download(makeZip(files), "選取作品.zip", "application/zip");
+};
 function editWork(w) {
   modal(
-    '<h2>編輯作品</h2><form id="edit-work"><label for="edit-title">作品名稱</label><input id="edit-title" maxlength="150" required><label for="edit-body">內容</label><textarea id="edit-body" maxlength="50000" rows="12"></textarea><label for="edit-type">分類</label><select id="edit-type"></select><div class="row"><button class="button">儲存變更</button></div><p class="muted">圖文設計另可透過「重開圖文設計」調整版型。</p></form>',
+    '<h2>編輯作品</h2><form id="edit-work"><label for="edit-title">作品名稱</label><input id="edit-title" maxlength="150" required><label for="edit-body">內容</label><textarea id="edit-body" maxlength="50000" rows="12"></textarea><label for="edit-type">分類</label><select id="edit-type"></select><label for="edit-tags">標籤（逗號分隔，最多 8 個、每個 20 字）</label><input id="edit-tags" maxlength="170"><div class="row"><button class="button">儲存變更</button></div><p class="muted">圖文設計另可透過「重開圖文設計」調整版型。</p></form>',
   );
   $("#edit-title").value = w.title;
   $("#edit-body").value = w.body;
+  $("#edit-tags").value = (w.tags || []).join(", ");
   for (const t of allThemes()) $("#edit-type").add(new Option(t[2], t[0]));
   $("#edit-type").value = [...$("#edit-type").options].some(
     (o) => o.value === w.type,
@@ -385,6 +545,16 @@ function editWork(w) {
         $("#edit-type").value,
         {
           ...w,
+          tags: [
+            ...new Set(
+              $("#edit-tags")
+                .value.split(/[,，]/)
+                .map((s) => s.trim())
+                .filter(Boolean),
+            ),
+          ]
+            .slice(0, 8)
+            .map((s) => s.slice(0, 20)),
           title: $("#edit-title").value.trim(),
           body: $("#edit-body").value,
           type: $("#edit-type").value,
@@ -451,6 +621,7 @@ function openStudio(t, work = null) {
     el,
     button,
     copy,
+    runTask,
     onChange: () => {
       dirty = true;
       clearTimeout(draftTimer);
@@ -463,6 +634,7 @@ function openStudio(t, work = null) {
   else {
     planner(b, t, api);
     if (t[0] === "video") cleanup = mountVideo(b, api) || cleanup;
+    if (t[0] === "research") cleanup = mountResearch(b, api) || cleanup;
   }
   if (!work) {
     const draft = Object.hasOwn(state.drafts, t[0]) ? state.drafts[t[0]] : null;
@@ -490,6 +662,57 @@ function openStudio(t, work = null) {
   heading.tabIndex = -1;
   heading.focus({ preventScroll: true });
   $("#studio").scrollIntoView({ behavior: "smooth" });
+  return true;
+}
+function runTask(task) {
+  const t = baseThemes.find((t) => t[0] === task.target) || baseThemes[3];
+  if (!openStudio(t)) return;
+  const set = (id, value) => {
+    const input = $("#" + id);
+    if (input) {
+      input.value =
+        input.maxLength > 0 ? value.slice(0, input.maxLength) : value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  };
+  if (task.target === "sticker") {
+    const preset = STICKER_STYLES[task.style];
+    set("sticker-style", task.style);
+    set("sticker-phrases", preset.phrases.join("\n"));
+    set("sticker-color", preset.color);
+    set(
+      "sticker-mode",
+      /有聲|音效/.test(task.prompt)
+        ? "sound"
+        : /動態|動畫|彈跳/.test(task.prompt)
+          ? "animated"
+          : "static",
+    );
+    $("#sticker-preview").click();
+  } else if (task.target === "art") {
+    set("card-title", task.prompt.slice(0, 35));
+    set("card-text", "將你的靈感寫在這裡，調整後即可下載。");
+    set(
+      "card-template",
+      /復古/.test(task.prompt)
+        ? "retro"
+        : /雜誌/.test(task.prompt)
+          ? "editorial"
+          : /漸層/.test(task.prompt)
+            ? "gradient"
+            : /拼貼/.test(task.prompt)
+              ? "collage"
+              : /海報/.test(task.prompt)
+                ? "poster"
+                : "minimal",
+    );
+  } else {
+    set("idea", task.prompt.slice(0, 150));
+    set("details", task.prompt);
+    $("#plan-form").requestSubmit();
+  }
+  toast("已在本站建立可編輯草稿；尚未送出或操作外部網站。");
 }
 function planner(b, t, api) {
   const type = t[0],
@@ -588,7 +811,14 @@ $("#manage-themes").onclick = () => {
   for (const t of state.themes)
     $("#theme-manager").append(button(t.name, () => manageTheme(t.id)));
 };
-for (const id of ["work-search", "work-type", "work-sort", "favorite-only"])
+for (const id of [
+  "work-search",
+  "work-type",
+  "work-sort",
+  "favorite-only",
+  "work-status",
+  "work-view",
+])
   $("#" + id).addEventListener(
     id === "work-search" ? "input" : "change",
     renderWorks,
@@ -659,6 +889,8 @@ $("#import-file").onchange = async (e) => {
           dirty = false;
           $("#studio").hidden = true;
           $("#data-warning").hidden = true;
+          selectedWorks.clear();
+          deletedWorks = [];
           renderThemes();
           renderWorks();
           closeModal();

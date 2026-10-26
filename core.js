@@ -48,6 +48,12 @@ export function normalizeState(input) {
       type: w.type,
       date: w.date,
       favorite: w.favorite === true,
+      status: ["idea", "progress", "done", "archived"].includes(w.status)
+        ? w.status
+        : "idea",
+      tags: Array.isArray(w.tags)
+        ? [...new Set(w.tags.filter((t) => text(t, 20, false)))].slice(0, 8)
+        : [],
     };
     if (typeof w.updated === "string" && Number.isFinite(Date.parse(w.updated)))
       result.updated = w.updated;
@@ -57,7 +63,9 @@ export function normalizeState(input) {
       if (
         !text(a.title, 60) ||
         !text(a.text, 500) ||
-        !["green", "sand", "night"].includes(a.palette) ||
+        !["green", "sand", "night", "rose", "lilac", "ocean"].includes(
+          a.palette,
+        ) ||
         !["square", "portrait", "landscape"].includes(a.size)
       )
         throw Error("圖文資料不正確");
@@ -67,6 +75,22 @@ export function normalizeState(input) {
         palette: a.palette,
         size: a.size,
         align: a.align === "left" ? "left" : "center",
+        template: [
+          "minimal",
+          "editorial",
+          "gradient",
+          "collage",
+          "poster",
+          "retro",
+        ].includes(a.template)
+          ? a.template
+          : "minimal",
+        font: ["sans", "serif", "mono"].includes(a.font) ? a.font : "sans",
+        accent:
+          typeof a.accent === "string" && /^#[0-9a-f]{6}$/i.test(a.accent)
+            ? a.accent
+            : "#d68b56",
+        kicker: text(a.kicker, 40) ? a.kicker : "CREATIVE NOTES / 靈感日誌",
       };
     }
     return result;
@@ -106,7 +130,10 @@ export function filterWorks(
   return works
     .filter(
       (w) =>
-        (!q || (w.title + " " + w.body).toLocaleLowerCase().includes(q)) &&
+        (!q ||
+          (w.title + " " + w.body + " " + (w.tags || []).join(" "))
+            .toLocaleLowerCase()
+            .includes(q)) &&
         (!type || w.type === type) &&
         (!favorite || w.favorite),
     )

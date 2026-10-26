@@ -133,6 +133,47 @@
           <small id="work-results" aria-live="polite"></small
           ><small id="storage-status"></small>
         </div>
+        <div class="work-filters advanced-filters">
+          <div>
+            <label for="work-status">作品狀態</label
+            ><select id="work-status">
+              <option value="">所有狀態</option>
+              <option value="idea">靈感</option>
+              <option value="progress">製作中</option>
+              <option value="done">已完成</option>
+              <option value="archived">已封存</option>
+            </select>
+          </div>
+          <div>
+            <label for="work-view">顯示方式</label
+            ><select id="work-view">
+              <option value="list">清單</option>
+              <option value="grid">卡片</option>
+              <option value="compact">精簡</option>
+              <option value="board">狀態看板</option>
+            </select>
+          </div>
+        </div>
+        <div class="batch-bar">
+          <label class="check"
+            ><input
+              id="select-visible"
+              type="checkbox"
+            />全選目前顯示作品</label
+          ><span id="selection-count" role="status">已選 0 筆</span>
+          <div class="work-actions">
+            <button id="batch-download" class="small" disabled>
+              批次下載 ZIP</button
+            ><button id="batch-favorite" class="small" disabled>批次收藏</button
+            ><button id="batch-done" class="small" disabled>標為完成</button
+            ><button id="batch-archive" class="small" disabled>封存</button
+            ><button id="batch-delete" class="small danger" disabled>
+              批次刪除</button
+            ><button id="undo-delete" class="small" disabled>
+              復原上次刪除
+            </button>
+          </div>
+        </div>
         <div id="works-list"></div>
       </section>
       <section class="bottom">

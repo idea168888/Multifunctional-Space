@@ -39,7 +39,7 @@ jobs:
       - name: Prepare public files only
         run: |
           mkdir _site
-          cp index.html style.css app.js core.js studios.js _site/
+          cp index.html style.css app.js core.js studios.js creative.js designs.js research.js _site/
           cp -r vendor _site/
       - uses: actions/upload-pages-artifact@v3
         with:
