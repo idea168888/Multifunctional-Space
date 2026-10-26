@@ -1,3 +1,10 @@
+import {
+  INTENTS,
+  resolveIntent,
+  poseFor,
+  drawFace,
+  drawEmotion,
+} from "./emotions.js";
 import { designBackdrop, DESIGN_STYLES, DESIGN_PALETTES } from "./designs.js";
 import {
   makeApng,
@@ -253,7 +260,7 @@ export function mountArt(root, api, work) {
 }
 export function mountStickers(root, api) {
   const $ = (selector) => root.querySelector(selector);
-  root.innerHTML = `<div class="notice">靜態／動態貼圖工具。規格已於 2026-10-26 對照 <a href="https://creator.line.me/zh-hant/guideline/sticker/" target="_blank" rel="noopener">LINE 官方製作準則 ↗</a>；實際送審仍以官方最新規定為準，不代表審核通過。</div><details><summary>查看完整規格與送審注意事項</summary><p><a href="https://creator.line.me/zh-hant/guideline/animationsticker/" target="_blank" rel="noopener">LINE 官方動態貼圖規格 ↗</a>：8／16／24 張、最大 320×270 且一邊 ≥270、5–20 格、播放 1–4 次且總時間 ≤4 秒；主圖 APNG 240×240，標籤靜態 PNG。</p><ul class="rule-list"><li>貼圖 8、16、24、32 或 40 張，最大 370×320 px，寬高均為偶數。</li><li>主圖 240×240 px；聊天室標籤 96×74 px。所有圖片 PNG、RGB、72 dpi 以上，每張 ≤1 MB，ZIP 小於 60 MB。</li><li>圖案去背透明；四周保留約 10 px 留白。空白圖片或只有透明像素不能作為貼圖。</li><li>名稱 40、創意人 50、說明 160、版權 50 字以內；全形算 2 字，不支援表情符號。版權使用英文或數字。</li><li>不得侵權、放入其他通訊服務名稱或違反內容準則。請另外確認 <a href="https://creator.line.me/zh-hant/review_guideline/" target="_blank" rel="noopener">官方審核準則 ↗</a>。</li></ul></details><div class="tool-tabs" role="group" aria-label="貼圖工具"><button id="sticker-create-tab" class="small" aria-pressed="true">製作與打包</button><button id="sticker-check-tab" class="small" aria-pressed="false">檢查現有 PNG</button></div><section id="sticker-create"><h3>製作一組對話貼圖</h3><p class="muted">使用自己的圖片與文字。上傳後可自動去背、手動修邊；無法保證複雜背景完全準確。</p><div class="form-grid"><div><label for="sticker-mode">整組模式</label><select id="sticker-mode"><option value="static">靜態 PNG（8–40 張）</option><option value="animated">動態 APNG（8／16／24 張）</option><option value="sound">有聲創作概念（非 LINE 送審包）</option></select></div><div><label for="sticker-style">創意風格</label><select id="sticker-style"><option value="daily">日常暖心</option><option value="funny">幽默吐槽</option><option value="silly">搞笑崩潰</option><option value="work">職場生存</option><option value="cosmic">宇宙新創</option><option value="festive">節慶祝福</option></select></div><div><label for="sticker-motion">動態效果</label><select id="sticker-motion"><option value="bounce">彈跳撒嬌</option><option value="shake">左右搖擺</option><option value="pulse">驚喜放大</option><option value="wobble">搞怪扭動</option></select></div><div><label for="sticker-loops">播放設定</label><select id="sticker-loops"><option value="2">1 秒 × 2 次（共 2 秒）</option><option value="1">1 秒 × 1 次</option><option value="4">1 秒 × 4 次</option></select></div></div><button id="apply-sticker-style" class="small">套用風格文案（取代目前文字）</button><p id="sticker-mode-note" class="notice" role="status"></p><label for="sticker-phrases">每行一張貼圖，需 8／16／24／32／40 行（每行最多 20 字）</label><textarea id="sticker-phrases" rows="8" maxlength="2000">你好！\n謝謝你\n辛苦了\n沒問題\n加油！\n早安\n晚安\n好開心</textarea><div class="form-grid"><div><label for="sticker-color">角色顏色</label><input id="sticker-color" type="color" value="#b9cf9c"></div><div><label for="sticker-character">角色造型</label><select id="sticker-character"><option value="blob">軟萌糰子</option><option value="cat">吐槽貓咪</option><option value="rabbit">元氣兔兔</option><option value="robot">靈感機器人</option><option value="star">宇宙小星星</option></select></div><div><label for="sticker-expression">表情</label><select id="sticker-expression"><option value="auto">每張自動變化</option><option value="happy">開心微笑</option><option value="surprise">驚訝呆萌</option><option value="sleep">慵懶想睡</option><option value="laugh">笑到閉眼</option></select></div><div><label for="sticker-image">自有角色圖片（選填）</label><input id="sticker-image" type="file" accept="image/png,image/jpeg,image/webp"></div></div><div class="cutout-panel"><h4>自動去背與修邊</h4><label class="check"><input id="cutout-auto" type="checkbox" checked>上傳後自動去除四邊相近背景色</label><div class="form-grid"><div><label for="cutout-tolerance">去背容差</label><input id="cutout-tolerance" type="range" min="5" max="150" value="40"></div><div><label for="cutout-feather">邊緣柔化</label><input id="cutout-feather" type="range" min="0" max="30" value="8"></div><div><label for="cutout-tool">手動筆刷</label><select id="cutout-tool"><option value="erase">擦除背景</option><option value="restore">恢復原圖</option></select></div><div><label for="cutout-brush">筆刷大小</label><input id="cutout-brush" type="range" min="5" max="100" value="35"></div></div><div class="work-actions"><button id="cutout-run" class="small">重新自動去背</button><button id="cutout-reset" class="small">恢復原圖</button><button id="cutout-download" class="small">下載透明 PNG</button></div><canvas id="cutout-canvas" width="300" height="220" hidden aria-label="去背預覽，可用筆刷修邊"></canvas><p id="cutout-status" class="muted" role="status">適合單色或簡單背景；複雜背景、同色主體與髮絲需手動修邊。圖片不會上傳。</p></div><section id="sound-panel" hidden><h4>有聲概念試作</h4><p class="notice">APNG 本身不能嵌入音訊。此模式輸出動畫＋獨立音效與試播頁，不能當作一般 LINE 貼圖 ZIP 送審；是否開放有聲商品需向 LINE 確認。</p><label for="sound-effect">原創電子音效</label><select id="sound-effect"><option value="giggle">俏皮電子笑聲</option><option value="boing">彈簧搞笑音</option><option value="sparkle">靈感星光音</option></select><label for="sound-file">或上傳自己的音訊（≤10 MB）</label><input id="sound-file" type="file" accept="audio/*"><div class="work-actions"><button id="sound-play" class="small">試聽音效</button><button id="sound-download" class="small">下載音效</button></div><audio id="sound-player" controls></audio></section><button id="sticker-clear-image" class="small">移除角色圖片</button><div class="row"><button id="sticker-preview" class="button">更新整組預覽</button><button id="sticker-zip" class="small">下載素材 ZIP ↓</button></div><div id="sticker-previews" class="sticker-previews"></div><p id="pack-status" role="status" class="muted"></p></section><section id="sticker-check" hidden><h3>檢查你的現有素材</h3><label for="asset-kind">素材類型</label><select id="asset-kind"><option value="static">靜態 PNG</option><option value="animated">動態 APNG</option></select><label for="asset-role">檔案用途</label><select id="asset-role"><option value="sticker">貼圖圖片（整組）</option><option value="main">主要圖片</option><option value="tab">聊天室標籤圖片</option></select><label for="assets">選擇 PNG（本機處理）</label><input id="assets" type="file" accept="image/png" multiple><div id="asset-report" role="status" class="result">尚未選取圖片。</div><button id="save-sticker" class="small">儲存檢查紀錄</button><p class="muted">自動檢查格式、尺寸、張數、色彩類型、大小、透明度、空白內容、留白及 DPI。DPI 未標示時需另行確認。</p></section><hr><h3>送審資料準備</h3><div class="form-grid"><div><label for="line-title">貼圖名稱</label><input id="line-title" maxlength="40" placeholder="我的日常小夥伴"></div><div><label for="line-creator">創意人名稱</label><input id="line-creator" maxlength="50"></div><div><label for="line-description">貼圖說明</label><textarea id="line-description" maxlength="160"></textarea></div><div><label for="line-copyright">版權（英文／數字）</label><input id="line-copyright" maxlength="50" placeholder="2026 YourName"></div></div><p id="metadata-status" role="status" class="muted"></p><label class="check"><input id="line-rights" type="checkbox">我已確認素材原創或取得商用授權，並人工檢查內容、可讀性與 LINE 審核準則。</label><div class="row"><button id="save-line-meta" class="small">檢查並下載送審文字</button><a class="button" href="https://creator.line.me/zh-hant/" target="_blank" rel="noopener">前往 LINE Creators Market ↗</a></div><p class="muted">ZIP 為圖片素材，送審文字另存 TXT。實際上架需登入 LINE，建立商品、填寫資料、上傳素材並申請審核；本網站不會代為送出。</p>`;
+  root.innerHTML = `<div class="notice">靜態／動態貼圖工具。規格已於 2026-10-26 對照 <a href="https://creator.line.me/zh-hant/guideline/sticker/" target="_blank" rel="noopener">LINE 官方製作準則 ↗</a>；實際送審仍以官方最新規定為準，不代表審核通過。</div><details><summary>查看完整規格與送審注意事項</summary><p><a href="https://creator.line.me/zh-hant/guideline/animationsticker/" target="_blank" rel="noopener">LINE 官方動態貼圖規格 ↗</a>：8／16／24 張、最大 320×270 且一邊 ≥270、5–20 格、播放 1–4 次且總時間 ≤4 秒；主圖 APNG 240×240，標籤靜態 PNG。</p><ul class="rule-list"><li>貼圖 8、16、24、32 或 40 張，最大 370×320 px，寬高均為偶數。</li><li>主圖 240×240 px；聊天室標籤 96×74 px。所有圖片 PNG、RGB、72 dpi 以上，每張 ≤1 MB，ZIP 小於 60 MB。</li><li>圖案去背透明；四周保留約 10 px 留白。空白圖片或只有透明像素不能作為貼圖。</li><li>名稱 40、創意人 50、說明 160、版權 50 字以內；全形算 2 字，不支援表情符號。版權使用英文或數字。</li><li>不得侵權、放入其他通訊服務名稱或違反內容準則。請另外確認 <a href="https://creator.line.me/zh-hant/review_guideline/" target="_blank" rel="noopener">官方審核準則 ↗</a>。</li></ul></details><div class="tool-tabs" role="group" aria-label="貼圖工具"><button id="sticker-create-tab" class="small" aria-pressed="true">製作與打包</button><button id="sticker-check-tab" class="small" aria-pressed="false">檢查現有 PNG</button></div><section id="sticker-create"><h3>製作一組對話貼圖</h3><p class="muted">使用自己的圖片與文字。上傳後可自動去背、手動修邊；無法保證複雜背景完全準確。</p><div class="form-grid"><div><label for="sticker-mode">整組模式</label><select id="sticker-mode"><option value="static">靜態 PNG（8–40 張）</option><option value="animated">動態 APNG（8／16／24 張）</option><option value="sound">有聲創作概念（非 LINE 送審包）</option></select></div><div><label for="sticker-style">創意風格</label><select id="sticker-style"><option value="daily">日常暖心</option><option value="funny">幽默吐槽</option><option value="silly">搞笑崩潰</option><option value="work">職場生存</option><option value="cosmic">宇宙新創</option><option value="festive">節慶祝福</option></select></div><div><label for="sticker-motion">動態效果</label><select id="sticker-motion"><option value="auto">依文字自動配動作</option><option value="bounce">彈跳撒嬌</option><option value="shake">左右搖擺</option><option value="pulse">驚喜放大</option><option value="wobble">搞怪扭動</option></select></div><div><label for="sticker-loops">播放設定</label><select id="sticker-loops"><option value="2">1 秒 × 2 次（共 2 秒）</option><option value="1">1 秒 × 1 次</option><option value="4">1 秒 × 4 次</option></select></div></div><button id="apply-sticker-style" class="small">套用風格文案（取代目前文字）</button><p id="sticker-mode-note" class="notice" role="status"></p><label for="sticker-phrases">每行一張貼圖，需 8／16／24／32／40 行（每行最多 20 字）</label><textarea id="sticker-phrases" rows="8" maxlength="2000">你好！\n謝謝你\n辛苦了\n沒問題\n加油！\n早安\n晚安\n好開心</textarea><div class="form-grid"><div><label for="sticker-color">角色顏色</label><input id="sticker-color" type="color" value="#b9cf9c"></div><div><label for="sticker-character">角色造型</label><select id="sticker-character"><option value="blob">軟萌糰子</option><option value="cat">吐槽貓咪</option><option value="rabbit">元氣兔兔</option><option value="robot">靈感機器人</option><option value="star">宇宙小星星</option></select></div><div><label for="sticker-expression">表情</label><select id="sticker-expression"><option value="auto">依文字意思配表情</option><option value="happy">開心微笑</option><option value="surprise">驚訝呆萌</option><option value="sleep">慵懶想睡</option><option value="laugh">笑到閉眼</option><option value="sad">難過委屈</option><option value="angry">生氣皺眉</option></select></div><div><label for="sticker-image">自有角色圖片（選填）</label><input id="sticker-image" type="file" accept="image/png,image/jpeg,image/webp"></div></div><details class="emotion-panel"><summary>上傳角色：文字動作與五官設定</summary><p class="notice">上傳角色會依文字套用整體姿勢與情緒符號。若要改變原圖五官，請勾選「重繪臉部」，再對準臉部位置與膚色；這是本機幾何合成，不是 AI 重畫，無法自動辨識任意角色的臉部或生成新肢體。</p><label for="sticker-intent">整組情緒動作</label><select id="sticker-intent"><option value="auto">依文字判讀（每張也可單獨調整）</option></select><input id="sticker-overrides" type="hidden" value="[]" maxlength="5000"><label class="check"><input id="face-redraw" type="checkbox">重繪上傳角色的五官（會覆蓋指定區域）</label><div class="form-grid"><div><label for="face-x">臉部中心左右（%）</label><input id="face-x" type="range" min="10" max="90" value="50"></div><div><label for="face-y">臉部中心上下（%）</label><input id="face-y" type="range" min="10" max="90" value="42"></div><div><label for="face-width">臉部寬度（%）</label><input id="face-width" type="range" min="10" max="70" value="40"></div><div><label for="face-height">臉部高度（%）</label><input id="face-height" type="range" min="10" max="60" value="30"></div><div><label for="face-color">覆蓋區域膚色／毛色</label><input id="face-color" type="color" value="#ffe7c5"></div></div><p class="muted">表情位置與覆蓋色會共用於整組。照片、側臉或不規則角色需自行調整，未勾選時保留原圖五官。</p></details><div class="cutout-panel"><h4>自動去背與修邊</h4><label class="check"><input id="cutout-auto" type="checkbox" checked>上傳後自動去除四邊相近背景色</label><div class="form-grid"><div><label for="cutout-tolerance">去背容差</label><input id="cutout-tolerance" type="range" min="5" max="150" value="40"></div><div><label for="cutout-feather">邊緣柔化</label><input id="cutout-feather" type="range" min="0" max="30" value="8"></div><div><label for="cutout-tool">手動筆刷</label><select id="cutout-tool"><option value="erase">擦除背景</option><option value="restore">恢復原圖</option></select></div><div><label for="cutout-brush">筆刷大小</label><input id="cutout-brush" type="range" min="5" max="100" value="35"></div></div><div class="work-actions"><button id="cutout-run" class="small">重新自動去背</button><button id="cutout-reset" class="small">恢復原圖</button><button id="cutout-download" class="small">下載透明 PNG</button></div><canvas id="cutout-canvas" width="300" height="220" hidden aria-label="去背預覽，可用筆刷修邊"></canvas><p id="cutout-status" class="muted" role="status">適合單色或簡單背景；複雜背景、同色主體與髮絲需手動修邊。圖片不會上傳。</p></div><section id="sound-panel" hidden><h4>有聲概念試作</h4><p class="notice">APNG 本身不能嵌入音訊。此模式輸出動畫＋獨立音效與試播頁，不能當作一般 LINE 貼圖 ZIP 送審；是否開放有聲商品需向 LINE 確認。</p><label for="sound-effect">原創電子音效</label><select id="sound-effect"><option value="giggle">俏皮電子笑聲</option><option value="boing">彈簧搞笑音</option><option value="sparkle">靈感星光音</option></select><label for="sound-file">或上傳自己的音訊（≤10 MB）</label><input id="sound-file" type="file" accept="audio/*"><div class="work-actions"><button id="sound-play" class="small">試聽音效</button><button id="sound-download" class="small">下載音效</button></div><audio id="sound-player" controls></audio></section><button id="sticker-clear-image" class="small">移除角色圖片</button><div class="row"><button id="sticker-preview" class="button">更新整組預覽</button><button id="sticker-zip" class="small">下載素材 ZIP ↓</button></div><div id="sticker-previews" class="sticker-previews"></div><p id="pack-status" role="status" class="muted"></p></section><section id="sticker-check" hidden><h3>檢查你的現有素材</h3><label for="asset-kind">素材類型</label><select id="asset-kind"><option value="static">靜態 PNG</option><option value="animated">動態 APNG</option></select><label for="asset-role">檔案用途</label><select id="asset-role"><option value="sticker">貼圖圖片（整組）</option><option value="main">主要圖片</option><option value="tab">聊天室標籤圖片</option></select><label for="assets">選擇 PNG（本機處理）</label><input id="assets" type="file" accept="image/png" multiple><div id="asset-report" role="status" class="result">尚未選取圖片。</div><button id="save-sticker" class="small">儲存檢查紀錄</button><p class="muted">自動檢查格式、尺寸、張數、色彩類型、大小、透明度、空白內容、留白及 DPI。DPI 未標示時需另行確認。</p></section><hr><h3>送審資料準備</h3><div class="form-grid"><div><label for="line-title">貼圖名稱</label><input id="line-title" maxlength="40" placeholder="我的日常小夥伴"></div><div><label for="line-creator">創意人名稱</label><input id="line-creator" maxlength="50"></div><div><label for="line-description">貼圖說明</label><textarea id="line-description" maxlength="160"></textarea></div><div><label for="line-copyright">版權（英文／數字）</label><input id="line-copyright" maxlength="50" placeholder="2026 YourName"></div></div><p id="metadata-status" role="status" class="muted"></p><label class="check"><input id="line-rights" type="checkbox">我已確認素材原創或取得商用授權，並人工檢查內容、可讀性與 LINE 審核準則。</label><div class="row"><button id="save-line-meta" class="small">檢查並下載送審文字</button><a class="button" href="https://creator.line.me/zh-hant/" target="_blank" rel="noopener">前往 LINE Creators Market ↗</a></div><p class="muted">ZIP 為圖片素材，送審文字另存 TXT。實際上架需登入 LINE，建立商品、填寫資料、上傳素材並申請審核；本網站不會代為送出。</p>`;
   let source = null,
     disposed = false,
     imageVersion = 0,
@@ -263,7 +270,8 @@ export function mountStickers(root, api) {
     original = null,
     soundUrl = null,
     drawing = false,
-    packing = false;
+    packing = false,
+    previewTimer = null;
   const switchTab = (create) => {
     $("#sticker-create").hidden = !create;
     $("#sticker-check").hidden = create;
@@ -284,14 +292,79 @@ export function mountStickers(root, api) {
     if (list.some((s) => [...s].length > 20)) throw Error("每行最多 20 字");
     return list;
   }
-  function renderSticker(text, w = 370, h = 320) {
+  for (const [id, profile] of Object.entries(INTENTS))
+    $("#sticker-intent").add(new Option(profile.label, id));
+  function overrides() {
+    try {
+      const entries = JSON.parse($("#sticker-overrides").value);
+      return new Map(
+        Array.isArray(entries)
+          ? entries.filter(
+              (pair) =>
+                Array.isArray(pair) &&
+                typeof pair[0] === "string" &&
+                Object.hasOwn(INTENTS, pair[1]),
+            )
+          : [],
+      );
+    } catch {
+      return new Map();
+    }
+  }
+  const overrideKey = (text, index) => JSON.stringify([index, text]);
+  function intentFor(text, index = 0) {
+    return resolveIntent(
+      text,
+      overrides().get(overrideKey(text, index)) || $("#sticker-intent").value,
+    );
+  }
+  function renderSticker(
+    text,
+    w = 370,
+    h = 320,
+    phase = null,
+    forcedIntent = null,
+  ) {
     const c = document.createElement("canvas");
     c.width = w;
     c.height = h;
-    const x = c.getContext("2d");
-    x.clearRect(0, 0, w, h);
-    if (source) contain(x, source, 26, 75, w - 52, h - 105);
-    else {
+    const actor = document.createElement("canvas");
+    actor.width = w;
+    actor.height = h;
+    let x = actor.getContext("2d");
+    const intent = forcedIntent || intentFor(text),
+      profile = INTENTS[intent];
+    const expression =
+      $("#sticker-expression").value === "auto"
+        ? profile.expression
+        : $("#sticker-expression").value;
+    if (source) {
+      const scale = Math.min(
+          (w - 52) / source.width,
+          (h - 105) / source.height,
+        ),
+        sw = source.width * scale,
+        sh = source.height * scale,
+        ox = 26 + (w - 52 - sw) / 2,
+        oy = 75 + (h - 105 - sh) / 2;
+      x.drawImage(source, ox, oy, sw, sh);
+      if ($("#face-redraw").checked) {
+        const fw = (sw * Number($("#face-width").value)) / 100,
+          fh = (sh * Number($("#face-height").value)) / 100,
+          cx = ox + (sw * Number($("#face-x").value)) / 100,
+          cy = oy + (sh * Number($("#face-y").value)) / 100;
+        x.save();
+        x.beginPath();
+        x.rect(ox, oy, sw, sh);
+        x.clip();
+        x.fillStyle = $("#face-color").value;
+        x.beginPath();
+        x.roundRect(cx - fw / 2, cy - fh / 2, fw, fh, Math.min(fw, fh) * 0.3);
+        x.fill();
+        drawFace(x, expression, cx, cy, fw * 0.82, fh * 0.8);
+        x.restore();
+      }
+    } else {
       x.fillStyle = $("#sticker-color").value;
       x.strokeStyle = "#284537";
       x.lineWidth = 4;
@@ -340,36 +413,21 @@ export function mountStickers(root, api) {
         x.arc(185, 80, 6, 0, Math.PI * 2);
         x.fill();
       }
-      const expression =
-        $("#sticker-expression").value === "auto"
-          ? ["happy", "surprise", "sleep", "laugh"][
-              [...text].reduce((n, c) => n + c.codePointAt(0), 0) % 4
-            ]
-          : $("#sticker-expression").value;
-      x.fillStyle = "#284537";
-      for (const px of [150, 220]) {
-        x.beginPath();
-        if (expression === "sleep") {
-          x.moveTo(px - 9, 180);
-          x.lineTo(px + 9, 180);
-          x.stroke();
-        } else if (expression === "laugh") {
-          x.arc(px, 182, 10, Math.PI, Math.PI * 2);
-          x.stroke();
-        } else {
-          x.arc(px, 180, expression === "surprise" ? 11 : 8, 0, Math.PI * 2);
-          x.fill();
-        }
-      }
-      x.beginPath();
-      if (expression === "surprise")
-        x.ellipse(185, 220, 12, 18, 0, 0, Math.PI * 2);
-      else if (expression === "sleep") {
-        x.moveTo(170, 220);
-        x.lineTo(200, 220);
-      } else x.arc(185, 206, 20, 0, Math.PI);
-      x.stroke();
+      drawFace(x, expression, 185, 198, 150, 80);
     }
+    x = c.getContext("2d");
+    const motion =
+      $("#sticker-motion").value === "auto"
+        ? profile.motion
+        : $("#sticker-motion").value;
+    const pose = poseFor(motion, phase === null ? 0.25 : phase);
+    x.save();
+    x.translate(185 + pose.x, 200 + pose.y);
+    x.rotate(pose.angle);
+    x.scale(pose.sx, pose.sy);
+    x.drawImage(actor, -185, -200);
+    x.restore();
+    drawEmotion(x, intent, phase === null ? 0.25 : phase);
     fitText(x, text, {
       x: w / 2,
       y: 20,
@@ -416,26 +474,75 @@ export function mountStickers(root, api) {
   };
   function preview() {
     if (disposed) return;
+    clearInterval(previewTimer);
     try {
       const list = phrases(),
         area = $("#sticker-previews");
       area.replaceChildren();
       list.forEach((text, i) => {
         const figure = document.createElement("figure"),
-          c = renderSticker(text);
-        c.className =
-          "sticker-preview" +
-          ($("#sticker-mode").value === "static"
-            ? ""
-            : " motion-" + $("#sticker-motion").value);
-        c.setAttribute("aria-label", text);
-        if($("#sticker-mode").value!=="static")c.style.animationIterationCount=$("#sticker-loops").value;
-        figure.append(
-          c,
-          api.el("figcaption", String(i + 1).padStart(2, "0") + " · " + text),
+          c = renderSticker(text, 370, 320, null, intentFor(text, i));
+        c.className = "sticker-preview";
+        c.dataset.intent = intentFor(text, i);
+        c.setAttribute(
+          "aria-label",
+          text + "：" + INTENTS[intentFor(text, i)].label,
         );
+        const caption = api.el(
+            "figcaption",
+            String(i + 1).padStart(2, "0") +
+              " · " +
+              text +
+              "／" +
+              INTENTS[intentFor(text, i)].label,
+          ),
+          choose = document.createElement("select");
+        choose.setAttribute("aria-label", "第 " + (i + 1) + " 張的情緒動作");
+        choose.add(new Option("自動判讀", "auto"));
+        for (const [id, p] of Object.entries(INTENTS))
+          choose.add(new Option(p.label, id));
+        choose.value = overrides().get(overrideKey(text, i)) || "auto";
+        choose.onchange = () => {
+          const map = overrides();
+          if (choose.value === "auto") map.delete(overrideKey(text, i));
+          else map.set(overrideKey(text, i), choose.value);
+          $("#sticker-overrides").value = JSON.stringify(
+            [...map].filter(([key]) =>
+              list.some((phrase, index) => overrideKey(phrase, index) === key),
+            ),
+          );
+          api.onChange();
+          preview();
+        };
+        figure.append(c, caption, choose);
         area.append(figure);
       });
+      if ($("#sticker-mode").value !== "static") {
+        let tick = 0;
+        const total = Number($("#sticker-loops").value) * 10;
+        const intentSnapshot = list.map((text, i) => intentFor(text, i));
+        previewTimer = setInterval(() => {
+          if (disposed || packing || !root.isConnected) {
+            clearInterval(previewTimer);
+            return;
+          }
+          const canvases = area.querySelectorAll("canvas");
+          canvases.forEach((canvas, i) => {
+            const frame = renderSticker(
+              list[i],
+              370,
+              320,
+              (tick % 10) / 10,
+              intentSnapshot[i],
+            );
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(frame, 0, 0);
+          });
+          tick += 2;
+          if (tick >= total) clearInterval(previewTimer);
+        }, 200);
+      }
       $("#pack-status").textContent =
         `共 ${list.length} 張；輸出會包含 main.png、tab.png 及 01.png 起的貼圖。主圖／標籤取第一張縮放，請人工確認小尺寸仍清楚。`;
     } catch (e) {
@@ -477,27 +584,24 @@ export function mountStickers(root, api) {
     $("#sticker-image").value = "";
     preview();
   };
-  async function animatedBytes(base, w = base.width, h = base.height) {
-    const frames = [];
-    const motion = $("#sticker-motion").value;
+  async function animatedBytes(
+    base,
+    w = base.width,
+    h = base.height,
+    text = "",
+    forcedIntent = null,
+  ) {
+    const frames = [],
+      intent = forcedIntent || intentFor(text);
     for (let i = 0; i < 10; i++) {
       if (disposed) throw Error("已離開工作區");
       const c = document.createElement("canvas");
       c.width = w;
       c.height = h;
-      const x = c.getContext("2d"),
-        t = (i / 10) * Math.PI * 2;
-      const angle =
-        motion === "shake"
-          ? Math.sin(t) * 0.08
-          : motion === "wobble"
-            ? Math.sin(t) * 0.12
-            : 0;
-      const scale = motion === "pulse" ? 0.82 + 0.08 * Math.sin(t) : 0.86;
-      x.translate(w / 2, h / 2 + (motion === "bounce" ? Math.sin(t) * 5 : 0));
-      x.rotate(angle);
-      x.scale(scale, scale);
-      contain(x, base, -w / 2 + 10, -h / 2 + 10, w - 20, h - 20);
+      const frame = renderSticker(text, 370, 320, i / 10, intent);
+      if (w === frame.width && h === frame.height)
+        c.getContext("2d").drawImage(frame, 0, 0);
+      else contain(c.getContext("2d"), frame, 10, 10, w - 20, h - 20);
       frames.push(await pngBytes(c));
     }
     return makeApng(frames, {
@@ -635,13 +739,16 @@ export function mountStickers(root, api) {
       if (!$("#line-rights").checked)
         return api.toast("請先勾選素材授權與內容確認");
       packing = true;
+      clearInterval(previewTimer);
       for (const input of $("#sticker-create").querySelectorAll(
         "input,select,textarea,button",
       ))
         input.disabled = true;
       button.disabled = true;
       const files = [],
-        canvases = list.map((text) => renderSticker(text)),
+        canvases = list.map((text, i) =>
+          renderSticker(text, 370, 320, null, intentFor(text, i)),
+        ),
         first = canvases[0];
       for (let i = 0; i < list.length; i++) {
         if (disposed || token !== packVersion) return;
@@ -650,7 +757,13 @@ export function mountStickers(root, api) {
         const bytes =
           mode === "static"
             ? await pngBytes(canvases[i])
-            : await animatedBytes(canvases[i]);
+            : await animatedBytes(
+                canvases[i],
+                canvases[i].width,
+                canvases[i].height,
+                list[i],
+                intentFor(list[i], i),
+              );
         if (bytes.length >= 1024 * 1024)
           throw Error("第 " + (i + 1) + " 張達到 1 MB，請簡化素材");
         files.push({ name: String(i + 1).padStart(2, "0") + ".png", bytes });
@@ -665,7 +778,7 @@ export function mountStickers(root, api) {
         contain(c.getContext("2d"), first, 10, 10, w - 20, h - 20);
         const bytes =
           name === "main.png" && mode !== "static"
-            ? await animatedBytes(c)
+            ? await animatedBytes(c, 240, 240, list[0])
             : await pngBytes(c);
         if (bytes.length >= 1024 * 1024) throw Error(name + " 達到 1 MB");
         files.push({ name, bytes });
@@ -878,6 +991,26 @@ export function mountStickers(root, api) {
     api.download(text, "LINE-送審文字.txt");
     api.saveWork(m.title, text, "sticker");
   };
+  root.addEventListener("input", (e) => {
+    if (
+      [
+        "sticker-phrases",
+        "sticker-expression",
+        "sticker-intent",
+        "sticker-motion",
+        "face-x",
+        "face-y",
+        "face-width",
+        "face-height",
+        "face-color",
+        "sticker-character",
+        "sticker-color",
+        "face-redraw",
+      ].includes(e.target.id) &&
+      !packing
+    )
+      preview();
+  });
   modeNote();
   preview();
   metadataStatus();
@@ -887,6 +1020,7 @@ export function mountStickers(root, api) {
     imageVersion++;
     packVersion++;
     original?.close();
+    clearInterval(previewTimer);
     $("#sound-player", root)?.pause();
     if (soundUrl) URL.revokeObjectURL(soundUrl);
   };
